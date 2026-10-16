@@ -1,0 +1,75 @@
+# FraudTrace - everything with one command:   docker compose up --build
+#   UI        http://localhost:8080
+#   API       http://localhost:8000/docs
+#   FalkorDB  Browser UI http://localhost:3000   (Redis protocol on 6379)
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "6379:6379"
+      - "3000:3000"
+    volumes:
+      - falkordb_data:/var/lib/falkordb/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot job. Loads the synthetic data the first time, then does nothing on later runs.
+  seed:
+    build: { context: ., dockerfile: seed/Dockerfile }
+    depends_on:
+      falkordb: { condition: service_healthy }
+    environment:
+      FALKORDB_HOST: falkordb
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+    volumes:
+      - ./seed/out:/app/seed/out      # ground_truth.json (the answer key) lands here
+    restart: "no"
+
+  # The MCP server: every graph tool is served from here (streamable HTTP).
+  mcp:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    command: ["python", "-m", "mcp_server.server"]
+    depends_on:
+      seed: { condition: service_completed_successfully }
+    environment:
+      MCP_TRANSPORT: streamable-http
+      MCP_PORT: "8001"
+      FALKORDB_HOST: falkordb
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+
+  # The agent + REST/SSE API. Talks to the model, and to the tools through the MCP server.
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    depends_on:
+      - mcp
+    ports:
+      - "8000:8000"
+    environment:
+      MCP_URL: http://mcp:8001/mcp
+      FALKORDB_HOST: falkordb
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD:-}
+      # LLM: the provider is auto-detected from whichever key is set (see backend/llm.py)
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+      MAX_RESULT_CHARS: ${MAX_RESULT_CHARS:-2500}
+      ANALYSTS: ${ANALYSTS:-alice,bob}
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  falkordb_data:

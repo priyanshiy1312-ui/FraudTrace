@@ -1,0 +1,8 @@
+# Versions below are the ones the test-suite was run against.
+anthropic==1.13.0
+httpx==0.28.1
+mcp==1.30.0
+fastapi==0.143.0
+uvicorn==0.54.0
+falkordb==1.7.1
+pydantic==2.14.0
