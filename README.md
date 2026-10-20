@@ -1,7 +1,7 @@
 # FraudTrace
 
 A fraud-investigation agent that **acts on connected data, remembers what it learns, and shows how it reached every answer.**
-Built for *Graph Hacks: Context for AI Agents* (FalkorDB x WeMakeDevs), **Track 01 - Agents That Act on Connected Data**.
+Built for  **Track 01 - Agents That Act on Connected Data**.
 
 An analyst asks *"Which accounts are linked to flagged transaction T-9001?"*. The agent walks the graph (shared devices, IPs,
 money loops), runs FalkorDB algorithms, flags the ring, opens a case, writes what it learned into the analyst's **own memory
